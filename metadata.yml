@@ -1,0 +1,5 @@
+homepage: "https://www.truevault.com"
+documentation: "https://www.truevault.com"
+versions:
+  - sha: 607f85a1b51d47fffdcc7726f8c319a392b52c5f
+    changeNotes: Initial Version
