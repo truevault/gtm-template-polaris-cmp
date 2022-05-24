@@ -13,7 +13,7 @@ ___INFO___
   "id": "cvt_temp_public_id",
   "version": 1,
   "securityGroups": [],
-  "displayName": "TrueVault CMP",
+  "displayName": "TrueVault Polaris CMP",
   "categories": [
     "TAG_MANAGEMENT",
     "PERSONALIZATION"
