@@ -159,9 +159,9 @@ const formatConsentCookie = (cookie) => {
   const parsedCookie = JSON.parse(cookie);
 
   return {
-    analyticsConsentGranted: parsedCookie.statisticsPermitted,
-    adConsentGranted: parsedCookie.marketingPermitted,
-    personalizationConsentGranted: parsedCookie.preferencesPermitted,
+    analyticsConsentGranted: parsedCookie.analyticsPermitted,
+    adConsentGranted: parsedCookie.adsPermitted,
+    personalizationConsentGranted: parsedCookie.personalizationPermitted,
     securityConsentGranted: parsedCookie.essentialPermitted,
     functionalityConsentGranted: parsedCookie.essentialPermitted,
   };
