@@ -122,6 +122,42 @@ const getCookieValues = require("getCookieValues");
 const callInWindow = require("callInWindow");
 const gtagSet = require("gtagSet");
 
+const EEA_UK_COUNTRY_CODES = [
+  "AT",
+  "BE",
+  "BG",
+  "CY",
+  "CZ",
+  "DE",
+  "DK",
+  "EE",
+  "ES",
+  "FI",
+  "FR",
+  "GB",
+  "GR",
+  "HR",
+  "HU",
+  "IE",
+  "IS",
+  "IT",
+  "LI",
+  "LT",
+  "LU",
+  "LV",
+  "MT",
+  "NL",
+  "NO",
+  "PL",
+  "PT",
+  "RO",
+  "SE",
+  "SI",
+  "SK",
+  "UK",
+];
+
+
 // Transform an object of booleans into an object
 // of granted/denied strings for sending to GTM
 const parseConsent = (consent) => {
@@ -131,6 +167,8 @@ const parseConsent = (consent) => {
     functionality_storage: consent.functionalityConsentGranted ? "granted" : "denied",
     personalization_storage: consent.personalizationConsentGranted ? "granted" : "denied",
     security_storage: consent.securityConsentGranted ? "granted" : "denied",
+    ad_user_data: consent.adConsentGranted ? "granted" : "denied",
+    ad_personalization: consent.adConsentGranted ? "granted" : "denied",
   };
 };
 
@@ -175,10 +213,24 @@ const main = (data) => {
   // Set developer ID
   // gtagSet('developer_id.<replace_with_your_developer_id>', true);
 
-  // Set default consent state(s)
+  // Set default consent required state(s)
   let defaultData = parseConsentDefaults(data);
   defaultData.wait_for_update = 500;
+  defaultData.region = EEA_UK_COUNTRY_CODES;
+
   setDefaultConsentState(defaultData);
+
+  // Set Implicit Defaults everywhere else
+  setDefaultConsentState({
+    ad_storage: 'granted',
+    analytics_storage: 'granted',
+    functionality_storage: 'granted',
+    personalization_storage: 'granted',
+    security_storage: 'granted',
+    ad_user_data: 'granted',
+    ad_personalization: 'granted',
+    wait_for_update: 500,
+  });
 
   // Set data redaction value
   gtagSet('adsDataRedaction', data.adsDataRedaction);
@@ -513,6 +565,68 @@ ___WEB_PERMISSIONS___
                   {
                     "type": 1,
                     "string": "wait_for_update"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "consentType"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "ad_user_data"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "consentType"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "ad_personalization"
                   },
                   {
                     "type": 8,
