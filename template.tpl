@@ -65,7 +65,7 @@ ___TEMPLATE_PARAMETERS___
             "type": "NON_EMPTY"
           }
         ]
-      },      
+      },
       {
         "type": "CHECKBOX",
         "name": "personalizationStorage",
@@ -413,7 +413,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -444,7 +444,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -475,7 +475,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -506,7 +506,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -537,7 +537,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -599,7 +599,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -630,7 +630,7 @@ ___WEB_PERMISSIONS___
                   },
                   {
                     "type": 8,
-                    "boolean": false
+                    "boolean": true
                   },
                   {
                     "type": 8,
@@ -653,7 +653,16 @@ ___WEB_PERMISSIONS___
 
 ___TESTS___
 
-scenarios: []
+scenarios:
+- name: Implicit consent by default (since we can't mock region)
+  code: "const isConsentGranted = require('isConsentGranted');\n\nconst mockData =\
+    \ {\n  // Mocked field values\n  analyticsStorage: true,\n  adStorage: true,\n\
+    \  personalizationStorage: true,\n  functionalityStorage: true,\n};  \n\n// Call\
+    \ runCode to run the template's code.\nrunCode(mockData);\n\nassertThat(isConsentGranted('ad_storage')).isEqualTo(true);\n\
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);\nassertThat(isConsentGranted('ad_personalization')).isEqualTo(true);\n\
+    assertThat(isConsentGranted('personalization_storage')).isEqualTo(true);\nassertThat(isConsentGranted('analytics_storage')).isEqualTo(true);\n\
+    assertThat(isConsentGranted('functionality_storage')).isEqualTo(true);\nassertThat(isConsentGranted('security_storage')).isEqualTo(true);\n\
+    \n// Verify that the tag finished successfully.\nassertApi('gtmOnSuccess').wasCalled();"
 
 
 ___NOTES___
