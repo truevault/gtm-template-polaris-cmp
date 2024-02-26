@@ -220,7 +220,7 @@ const main = (data) => {
 
   setDefaultConsentState(defaultData);
 
-  // Set Implicit Defaults everywhere else
+  // Set implicit defaults everywhere else
   setDefaultConsentState({
     ad_storage: 'granted',
     analytics_storage: 'granted',
