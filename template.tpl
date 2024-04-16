@@ -204,7 +204,7 @@ const formatConsentCookie = (cookie) => {
     personalizationConsentGranted: parsedCookie.personalizationPermitted,
     securityConsentGranted: parsedCookie.essentialPermitted,
     functionalityConsentGranted: parsedCookie.essentialPermitted,
-    notOptedOut: parsedCookie.notOptedOut,
+    notOptedOut: parsedCookie.notOptedOut !== false ? true : false, /* This can be undefined if the cookie isn't set. Undefined -> true, we haven't opted out */
   };
 };
 
