@@ -169,6 +169,7 @@ const parseConsent = (consent) => {
     security_storage: consent.securityConsentGranted ? "granted" : "denied",
     ad_user_data: consent.adConsentGranted ? "granted" : "denied",
     ad_personalization: consent.adConsentGranted ? "granted" : "denied",
+    tv_not_opted_out: consent.notOptedOut ? "granted" : "denied",
   };
 };
 
@@ -186,6 +187,7 @@ const parseConsentDefaults = (data) => {
     personalizationConsentGranted: data.personalizationStorage,
     securityConsentGranted: data.functionalityStorage,
     functionalityConsentGranted: data.functionalityStorage,
+    tv_not_opted_out: true, /* There is no GTM Template toggle we expose for this concept, it would be confusing - and toggling off only applies to USP regions anyway. */
   });
 };
 
@@ -202,6 +204,7 @@ const formatConsentCookie = (cookie) => {
     personalizationConsentGranted: parsedCookie.personalizationPermitted,
     securityConsentGranted: parsedCookie.essentialPermitted,
     functionalityConsentGranted: parsedCookie.essentialPermitted,
+    notOptedOut: parsedCookie.notOptedOut !== false, /* This can be undefined if the cookie isn't set. Undefined -> true, we haven't opted out */
   };
 };
 
@@ -229,6 +232,7 @@ const main = (data) => {
     security_storage: 'granted',
     ad_user_data: 'granted',
     ad_personalization: 'granted',
+    tv_not_opted_out: 'granted',
     wait_for_update: 500,
   });
 
@@ -637,6 +641,37 @@ ___WEB_PERMISSIONS___
                     "boolean": true
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "consentType"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "tv_not_opted_out"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
               }
             ]
           }
@@ -668,4 +703,5 @@ scenarios:
 ___NOTES___
 
 Created on 9/23/2021, 11:22:06 AM
+
 
