@@ -155,6 +155,7 @@ const CONSENT_DEFAULT_OFF_COUNTRY_CODES = [
   "SI",
   "SK",
   "UK",
+  "CH",
   "CA-QC"
 ];
 
