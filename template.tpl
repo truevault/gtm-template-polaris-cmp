@@ -122,7 +122,7 @@ const getCookieValues = require("getCookieValues");
 const callInWindow = require("callInWindow");
 const gtagSet = require("gtagSet");
 
-const EEA_UK_COUNTRY_CODES = [
+const CONSENT_DEFAULT_OFF_COUNTRY_CODES = [
   "AT",
   "BE",
   "BG",
@@ -155,6 +155,7 @@ const EEA_UK_COUNTRY_CODES = [
   "SI",
   "SK",
   "UK",
+  "CA-QC"
 ];
 
 
@@ -219,7 +220,7 @@ const main = (data) => {
   // Set default consent required state(s)
   let defaultData = parseConsentDefaults(data);
   defaultData.wait_for_update = 500;
-  defaultData.region = EEA_UK_COUNTRY_CODES;
+  defaultData.region = CONSENT_DEFAULT_OFF_COUNTRY_CODES;
 
   setDefaultConsentState(defaultData);
 
