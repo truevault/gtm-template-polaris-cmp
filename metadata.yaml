@@ -2,9 +2,11 @@ homepage: "https://www.truevault.com"
 documentation: "https://help.truevault.com/article/165-setting-up-consent-management-in-google-tag-manager#which-category"
 versions:
   # Latest version
+  - sha: d5b7169416df1d4c072525b8d3ae25a292bf3f46
+    changeNotes: Add support for PIPEDA
+  # Older versions
   - sha: ec37b07c0b3136724bbddb4145808ff04bc91126
     changeNotes: Add in-browser opt-out consent signal
-  # Older versions
   - sha: 04840753007745446ecf0f083276e24feefbf4ed
     changeNotes: Update to support Consent Mode V2
   - sha: dee26f1fdf4f86f3fe7751e225f3b4c6aeb4f9ca
