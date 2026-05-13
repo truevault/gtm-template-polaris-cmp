@@ -2,9 +2,11 @@ homepage: "https://www.truevault.com"
 documentation: "https://help.truevault.com/article/165-setting-up-consent-management-in-google-tag-manager#which-category"
 versions:
   # Latest version
+  - sha: a1647410826d79ef76bdfaebaa43652477d1f559
+    changeNotes: Add Google CMP developer ID and refresh template description
+  # Older versions
   - sha: dbc950e33e5386d6d4965f4f69f9f320313f6c90
     changeNotes: Update to new TrueVault logo
-  # Older versions
   - sha: d5b7169416df1d4c072525b8d3ae25a292bf3f46
     changeNotes: Add support for PIPEDA
   - sha: ec37b07c0b3136724bbddb4145808ff04bc91126
