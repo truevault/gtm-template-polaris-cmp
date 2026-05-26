@@ -189,7 +189,7 @@ const parseConsentDefaults = (data) => {
     personalizationConsentGranted: data.personalizationStorage,
     securityConsentGranted: data.functionalityStorage,
     functionalityConsentGranted: data.functionalityStorage,
-    notOptedOut: true, /* parseConsent reads `notOptedOut` (not `tv_not_opted_out`); there is no GTM Template toggle we expose for this concept, it would be confusing - and toggling off only applies to USP regions anyway. */
+    notOptedOut: true, /* There is no GTM Template toggle we expose for this concept, it would be confusing - and toggling off only applies to USP regions anyway. */
   });
 };
 
