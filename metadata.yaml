@@ -2,9 +2,11 @@ homepage: "https://www.truevault.com"
 documentation: "https://help.truevault.com/article/165-setting-up-consent-management-in-google-tag-manager#which-category"
 versions:
   # Latest version
+  - sha: ba378631c2a151d876e4dba4551a48e4f36de95d
+    changeNotes: Correct not-opted-out consent default mapping
+  # Older versions
   - sha: 1fbac49562825aee762732959dd4c71337d052eb
     changeNotes: Shorten template description for compatibility
-  # Older versions
   - sha: a1647410826d79ef76bdfaebaa43652477d1f559
     changeNotes: Add Google CMP developer ID and refresh template description
   - sha: dbc950e33e5386d6d4965f4f69f9f320313f6c90
