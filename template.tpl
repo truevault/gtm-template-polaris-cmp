@@ -160,6 +160,15 @@ const CONSENT_DEFAULT_OFF_COUNTRY_CODES = [
 ];
 
 
+const adPersonalizationConsentGranted = (consent) => {
+  // Targeted Advertising is absent in some Polaris flows; fall back to Advertising there.
+  if (typeof consent.notOptedOut === "boolean") {
+    return consent.adConsentGranted && consent.notOptedOut;
+  }
+
+  return consent.adConsentGranted;
+};
+
 // Transform an object of booleans into an object
 // of granted/denied strings for sending to GTM
 const parseConsent = (consent) => {
@@ -170,8 +179,8 @@ const parseConsent = (consent) => {
     personalization_storage: consent.personalizationConsentGranted ? "granted" : "denied",
     security_storage: consent.securityConsentGranted ? "granted" : "denied",
     ad_user_data: consent.adConsentGranted ? "granted" : "denied",
-    ad_personalization: consent.adConsentGranted ? "granted" : "denied",
-    tv_not_opted_out: consent.notOptedOut ? "granted" : "denied",
+    ad_personalization: adPersonalizationConsentGranted(consent) ? "granted" : "denied",
+    tv_not_opted_out: consent.notOptedOut !== false ? "granted" : "denied",
   };
 };
 
@@ -189,7 +198,6 @@ const parseConsentDefaults = (data) => {
     personalizationConsentGranted: data.personalizationStorage,
     securityConsentGranted: data.functionalityStorage,
     functionalityConsentGranted: data.functionalityStorage,
-    notOptedOut: true, /* There is no GTM Template toggle we expose for this concept, it would be confusing - and toggling off only applies to USP regions anyway. */
   });
 };
 
@@ -200,14 +208,19 @@ const formatConsentCookie = (cookie) => {
 
   const parsedCookie = JSON.parse(cookie);
 
-  return {
+  const consent = {
     analyticsConsentGranted: parsedCookie.analyticsPermitted,
     adConsentGranted: parsedCookie.adsPermitted,
     personalizationConsentGranted: parsedCookie.personalizationPermitted,
     securityConsentGranted: parsedCookie.essentialPermitted,
     functionalityConsentGranted: parsedCookie.essentialPermitted,
-    notOptedOut: parsedCookie.notOptedOut !== false, /* This can be undefined if the cookie isn't set. Undefined -> true, we haven't opted out */
   };
+
+  if (typeof parsedCookie.notOptedOut !== "undefined") {
+    consent.notOptedOut = parsedCookie.notOptedOut !== false;
+  }
+
+  return consent;
 };
 
 /**
@@ -705,10 +718,96 @@ scenarios:
     assertThat(isConsentGranted('personalization_storage')).isEqualTo(true);\nassertThat(isConsentGranted('analytics_storage')).isEqualTo(true);\n\
     assertThat(isConsentGranted('functionality_storage')).isEqualTo(true);\nassertThat(isConsentGranted('security_storage')).isEqualTo(true);\n\
     \n// Verify that the tag finished successfully.\nassertApi('gtmOnSuccess').wasCalled();"
+- name: Grants ad_personalization when Advertising and Targeted Advertising are permitted
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":true}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(true);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Denies ad_personalization when Targeted Advertising is opted out
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":false}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(false);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(false);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Falls back to Advertising when Targeted Advertising is absent
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(true);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Advertising fallback denies ad_personalization when Advertising is denied
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":false,"personalizationPermitted":true,"essentialPermitted":true}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(false);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(false);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(false);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
 
 
 ___NOTES___
 
 Created on 9/23/2021, 11:22:06 AM
-
-
