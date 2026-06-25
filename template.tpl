@@ -160,9 +160,30 @@ const CONSENT_DEFAULT_OFF_COUNTRY_CODES = [
 ];
 
 
+// Whether the visitor is in a Targeted Advertising opt-out flow, as determined by Polaris
+// (a targeted-advertising org, in the US/Canada, outside GDPR/global regions). Polaris exposes
+// this as a window global. We read it live rather than inferring it from the consent cookie:
+// the Polaris cookie ALWAYS carries `notOptedOut`, so cookie presence alone can't tell us whether
+// opt-out actually applies. If Polaris has not initialized yet (e.g. this tag fired first), the
+// global is absent and we default to false — ad_personalization then follows Advertising, the
+// same default Polaris itself uses.
+const isTargetedAdvertisingApplicable = () => {
+  return callInWindow("isPolarisTargetedAdvertisingApplicable") === true;
+};
+
+const adPersonalizationConsentGranted = (consent, targetedAdvertisingApplicable) => {
+  if (!consent.adConsentGranted) {
+    return false;
+  }
+
+  // Inside Targeted Advertising flows, ad_personalization additionally requires that the visitor
+  // has not opted out. Everywhere else it simply follows the Advertising toggle.
+  return targetedAdvertisingApplicable ? consent.notOptedOut !== false : true;
+};
+
 // Transform an object of booleans into an object
 // of granted/denied strings for sending to GTM
-const parseConsent = (consent) => {
+const parseConsent = (consent, targetedAdvertisingApplicable) => {
   return {
     ad_storage: consent.adConsentGranted ? "granted" : "denied",
     analytics_storage: consent.analyticsConsentGranted ? "granted" : "denied",
@@ -170,8 +191,8 @@ const parseConsent = (consent) => {
     personalization_storage: consent.personalizationConsentGranted ? "granted" : "denied",
     security_storage: consent.securityConsentGranted ? "granted" : "denied",
     ad_user_data: consent.adConsentGranted ? "granted" : "denied",
-    ad_personalization: consent.adConsentGranted ? "granted" : "denied",
-    tv_not_opted_out: consent.notOptedOut ? "granted" : "denied",
+    ad_personalization: adPersonalizationConsentGranted(consent, targetedAdvertisingApplicable) ? "granted" : "denied",
+    tv_not_opted_out: consent.notOptedOut !== false ? "granted" : "denied",
   };
 };
 
@@ -179,18 +200,19 @@ const parseConsent = (consent) => {
 // is expected to be called by the Polaris Cookie Consent Banner
 // any time the user consent is updated.
 const onUserConsent = (consent) => {
-  updateConsentState(parseConsent(consent));
+  updateConsentState(parseConsent(consent, isTargetedAdvertisingApplicable()));
 };
 
 const parseConsentDefaults = (data) => {
+  // Defaults represent the pre-interaction state configured in the GTM UI; there is no opt-out
+  // signal yet, so ad_personalization follows Advertising (targetedAdvertisingApplicable = false).
   return parseConsent({
     analyticsConsentGranted: data.analyticsStorage,
     adConsentGranted: data.adStorage,
     personalizationConsentGranted: data.personalizationStorage,
     securityConsentGranted: data.functionalityStorage,
     functionalityConsentGranted: data.functionalityStorage,
-    notOptedOut: true, /* There is no GTM Template toggle we expose for this concept, it would be confusing - and toggling off only applies to USP regions anyway. */
-  });
+  }, false);
 };
 
 const formatConsentCookie = (cookie) => {
@@ -206,7 +228,7 @@ const formatConsentCookie = (cookie) => {
     personalizationConsentGranted: parsedCookie.personalizationPermitted,
     securityConsentGranted: parsedCookie.essentialPermitted,
     functionalityConsentGranted: parsedCookie.essentialPermitted,
-    notOptedOut: parsedCookie.notOptedOut !== false, /* This can be undefined if the cookie isn't set. Undefined -> true, we haven't opted out */
+    notOptedOut: parsedCookie.notOptedOut !== false, /* undefined (cookie not set) -> true, not opted out */
   };
 };
 
@@ -301,6 +323,45 @@ ___WEB_PERMISSIONS___
                   {
                     "type": 1,
                     "string": "addConsentListener"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "isPolarisTargetedAdvertisingApplicable"
                   },
                   {
                     "type": 8,
@@ -705,10 +766,115 @@ scenarios:
     assertThat(isConsentGranted('personalization_storage')).isEqualTo(true);\nassertThat(isConsentGranted('analytics_storage')).isEqualTo(true);\n\
     assertThat(isConsentGranted('functionality_storage')).isEqualTo(true);\nassertThat(isConsentGranted('security_storage')).isEqualTo(true);\n\
     \n// Verify that the tag finished successfully.\nassertApi('gtmOnSuccess').wasCalled();"
+- name: Grants ad_personalization when Advertising and Targeted Advertising are permitted
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":true}',
+      ];
+    });
+    mock('callInWindow', (fnName) => {
+      if (fnName === 'isPolarisTargetedAdvertisingApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(true);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Denies ad_personalization when Targeted Advertising applies and visitor opted out
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":false}',
+      ];
+    });
+    mock('callInWindow', (fnName) => {
+      if (fnName === 'isPolarisTargetedAdvertisingApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(false);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(false);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Follows Advertising when Targeted Advertising does not apply, even for an opted-out cookie
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    // The Polaris cookie always carries notOptedOut; here it is false (opted out), but Polaris
+    // reports that Targeted Advertising does NOT apply for this visitor/org (callInWindow is left
+    // unmocked, so isPolarisTargetedAdvertisingApplicable() resolves to undefined -> false).
+    // ad_personalization must therefore follow Advertising and stay granted.
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":false}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(true);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(true);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(false);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Denies ad_personalization when Advertising is denied, even if Targeted Advertising applies
+  code: |-
+    const isConsentGranted = require('isConsentGranted');
+
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":false,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":true}',
+      ];
+    });
+    mock('callInWindow', (fnName) => {
+      if (fnName === 'isPolarisTargetedAdvertisingApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertThat(isConsentGranted('ad_storage')).isEqualTo(false);
+    assertThat(isConsentGranted('ad_user_data')).isEqualTo(false);
+    assertThat(isConsentGranted('ad_personalization')).isEqualTo(false);
+    assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
 
 
 ___NOTES___
 
 Created on 9/23/2021, 11:22:06 AM
-
-
