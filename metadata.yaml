@@ -2,9 +2,11 @@ homepage: "https://www.truevault.com"
 documentation: "https://help.truevault.com/article/165-setting-up-consent-management-in-google-tag-manager#which-category"
 versions:
   # Latest version
+  - sha: b53f16fcaedbebbb274134fd7e5e3714ca1cd84d
+    changeNotes: Correct ad personalization consent mapping
+  # Older versions
   - sha: ba378631c2a151d876e4dba4551a48e4f36de95d
     changeNotes: Correct not-opted-out consent default mapping
-  # Older versions
   - sha: 1fbac49562825aee762732959dd4c71337d052eb
     changeNotes: Shorten template description for compatibility
   - sha: a1647410826d79ef76bdfaebaa43652477d1f559
