@@ -196,11 +196,33 @@ const parseConsent = (consent, targetedAdvertisingApplicable) => {
   };
 };
 
+// Bridge the sale/share opt-out to Google's restricted_data_processing parameter, Google's
+// mechanism for US state privacy opt-outs:
+// https://developers.google.com/tag-platform/security/guides/privacy
+// Applies in every banner variant, but only in opt-out regions: in EEA/UK/Global regions
+// `notOptedOut: false` is just the opt-in baseline. Polaris exposes that region check as a window
+// global. Before Polaris initializes it is absent or false, so the cookie read in `main` sets no
+// RDP; Polaris then replays the current consent to our listener, which sets it on the same page
+// view. We only ever assert RDP, and set it back to false only to undo our own earlier `true` (an
+// in-page opt-back-in), so we never clear an RDP value the publisher configured.
+let restrictedDataProcessingSet = false;
+const syncRestrictedDataProcessing = (consent) => {
+  const optOutRegionApplicable = callInWindow("isPolarisOptOutRegionApplicable") === true;
+  const restricted = optOutRegionApplicable && consent.notOptedOut === false;
+  if (restricted === restrictedDataProcessingSet) {
+    return;
+  }
+
+  gtagSet('restricted_data_processing', restricted);
+  restrictedDataProcessingSet = restricted;
+};
+
 // Registered as a Callback on the client page, this function
 // is expected to be called by the Polaris Cookie Consent Banner
 // any time the user consent is updated.
 const onUserConsent = (consent) => {
   updateConsentState(parseConsent(consent, isTargetedAdvertisingApplicable()));
+  syncRestrictedDataProcessing(consent);
 };
 
 const parseConsentDefaults = (data) => {
@@ -261,8 +283,10 @@ const main = (data) => {
     wait_for_update: 500,
   });
 
-  // Set data redaction value
-  gtagSet('adsDataRedaction', data.adsDataRedaction);
+  // Set data redaction value. Google's key is `ads_data_redaction`; the camelCase UI field name is
+  // only the template parameter.
+  // https://developers.google.com/tag-platform/tag-manager/templates/consent-apis
+  gtagSet('ads_data_redaction', data.adsDataRedaction);
 
   // Check if the Polaris Cookie is set, and if it is,
   // run user consent with those values.
@@ -376,6 +400,45 @@ ___WEB_PERMISSIONS___
                     "boolean": true
                   }
                 ]
+              },
+              {
+                "type": 3,
+                "mapKey": [
+                  {
+                    "type": 1,
+                    "string": "key"
+                  },
+                  {
+                    "type": 1,
+                    "string": "read"
+                  },
+                  {
+                    "type": 1,
+                    "string": "write"
+                  },
+                  {
+                    "type": 1,
+                    "string": "execute"
+                  }
+                ],
+                "mapValue": [
+                  {
+                    "type": 1,
+                    "string": "isPolarisOptOutRegionApplicable"
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  },
+                  {
+                    "type": 8,
+                    "boolean": false
+                  },
+                  {
+                    "type": 8,
+                    "boolean": true
+                  }
+                ]
               }
             ]
           }
@@ -401,11 +464,15 @@ ___WEB_PERMISSIONS___
             "listItem": [
               {
                 "type": 1,
-                "string": "adsDataRedaction"
+                "string": "ads_data_redaction"
               },
               {
                 "type": 1,
                 "string": "developer_id.dZjUxMW"
+              },
+              {
+                "type": 1,
+                "string": "restricted_data_processing"
               }
             ]
           }
@@ -872,6 +939,130 @@ scenarios:
     assertThat(isConsentGranted('ad_user_data')).isEqualTo(false);
     assertThat(isConsentGranted('ad_personalization')).isEqualTo(false);
     assertThat(isConsentGranted('tv_not_opted_out')).isEqualTo(true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Sets ads_data_redaction under Google's key
+  code: |-
+    runCode({
+      analyticsStorage: false,
+      adStorage: false,
+      personalizationStorage: false,
+      functionalityStorage: true,
+      adsDataRedaction: true,
+    });
+
+    assertApi('gtagSet').wasCalledWith('ads_data_redaction', true);
+    assertApi('gtagSet').wasNotCalledWith('adsDataRedaction', true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Sets restricted_data_processing for an opted-out cookie in an opt-out region
+  code: |-
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":false}',
+      ];
+    });
+    mock('callInWindow', (fnName) => {
+      if (fnName === 'isPolarisOptOutRegionApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertApi('gtagSet').wasCalledWith('restricted_data_processing', true);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Leaves restricted_data_processing untouched for a cookie that is not opted out
+  code: |-
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":true}',
+      ];
+    });
+    mock('callInWindow', (fnName) => {
+      if (fnName === 'isPolarisOptOutRegionApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertApi('gtagSet').wasNotCalledWith('restricted_data_processing', true);
+    assertApi('gtagSet').wasNotCalledWith('restricted_data_processing', false);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Leaves restricted_data_processing untouched outside opt-out regions, even for an opted-out cookie
+  code: |-
+    // In EEA/UK/Global regions notOptedOut: false is only the opt-in baseline, not an opt-out.
+    // callInWindow is left unmocked, so isPolarisOptOutRegionApplicable() resolves to
+    // undefined -> false.
+    mock('getCookieValues', (name) => {
+      return [
+        '{"analyticsPermitted":true,"adsPermitted":true,"personalizationPermitted":true,"essentialPermitted":true,"notOptedOut":false}',
+      ];
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    assertApi('gtagSet').wasNotCalledWith('restricted_data_processing', true);
+    assertApi('gtagSet').wasNotCalledWith('restricted_data_processing', false);
+    assertApi('gtmOnSuccess').wasCalled();
+- name: Clears restricted_data_processing on opt-back-in only after setting it
+  code: |-
+    let consentListener;
+    mock('getCookieValues', (name) => {
+      return [];
+    });
+    mock('callInWindow', (fnName, arg) => {
+      if (fnName === 'addConsentListener') {
+        consentListener = arg;
+      }
+      if (fnName === 'isPolarisOptOutRegionApplicable') {
+        return true;
+      }
+    });
+
+    runCode({
+      analyticsStorage: true,
+      adStorage: true,
+      personalizationStorage: true,
+      functionalityStorage: true,
+    });
+
+    const consent = (notOptedOut) => {
+      return {
+        adConsentGranted: true,
+        analyticsConsentGranted: true,
+        functionalityConsentGranted: true,
+        personalizationConsentGranted: true,
+        securityConsentGranted: true,
+        notOptedOut: notOptedOut,
+      };
+    };
+
+    // Not opted out and RDP never set by us: nothing to undo, so leave any publisher value alone.
+    consentListener(consent(true));
+    assertApi('gtagSet').wasNotCalledWith('restricted_data_processing', false);
+
+    // Opt-out sets RDP.
+    consentListener(consent(false));
+    assertApi('gtagSet').wasCalledWith('restricted_data_processing', true);
+
+    // Opting back in undoes our own RDP.
+    consentListener(consent(true));
+    assertApi('gtagSet').wasCalledWith('restricted_data_processing', false);
     assertApi('gtmOnSuccess').wasCalled();
 
 
